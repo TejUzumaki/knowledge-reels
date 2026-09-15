@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Knowledge Reels</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #000000;
+            --text-primary: #FFFFFF;
+            --text-secondary: rgba(255, 255, 255, 0.6);
+            --accent-correct: #00E5C7;
+            --accent-wrong: #FF3366;
+            --accent-highlight: #FFD700;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            overflow: hidden;
+            height: 100vh;
+            height: 100dvh;
+        }
+
+        .reels-feed {
+            height: 100vh;
+            height: 100dvh;
+            overflow-y: scroll;
+            scroll-snap-type: y mandatory;
+            scrollbar-width: none;
+        }
+        .reels-feed::-webkit-scrollbar { display: none; }
+
+        .reel {
+            height: 100vh;
+            height: 100dvh;
+            width: 100vw;
+            scroll-snap-align: start;
+            scroll-snap-stop: always;
+            position: relative;
+            overflow: hidden;
+            background: #0a0a0a;
+        }
+
+        .reel-bg {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-size: cover;
+            background-position: center;
+            filter: brightness(0.3) blur(8px);
+            z-index: 0;
+            transform: scale(1.1);
+        }
+
+        /* Action Bar (IG Hierarchy, Functional Tools Only) */
+        .action-bar {
+            position: absolute;
+            right: 10px;
+            bottom: 80px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            z-index: 15;
+        }
+
+        .action-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+        }
+
+        .action-icon {
+            width: 30px;
+            height: 30px;
+            stroke: #fff;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));
+            transition: transform 0.2s ease;
+        }
+        .action-item:active .action-icon { transform: scale(0.9); }
+        
+        .action-icon.active { stroke: var(--accent-correct); fill: var(--accent-correct); }
+
+        .action-text {
+            font-size: 11px;
+            font-weight: 500;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.6);
+            color: #fff;
+        }
+
+        /* Article Reader Container */
+        .article-container {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 75vh;
+            background: linear-gradient(to top, #000000 80%, transparent 100%);
+            padding: 20px 16px 40px 16px;
+            z-index: 10;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.2) transparent;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.4s ease, transform 0.4s ease;
+            pointer-events: none;
+        }
+        .article-container::-webkit-scrollbar { width: 2px; }
+        .article-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); }
+
+        .article-container.active {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .status-badge {
+            display: inline-block;
+            font-size: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin-bottom: 12px;
+            font-weight: 700;
+        }
+        .status-partial {
+            background: rgba(255, 51, 102, 0.15);
+            color: var(--accent-wrong);
+            border: 1px solid var(--accent-wrong);
+        }
+        .status-full {
+            background: rgba(0, 229, 199, 0.15);
+            color: var(--accent-correct);
+            border: 1px solid var(--accent-correct);
+        }
+
+        .article-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            line-height: 1.3;
+        }
+        
+        .article-body {
+            font-size: 14px;
+            line-height: 1.6;
+            color: rgba(255,255,255,0.9);
+        }
+        .article-body p { margin-bottom: 16px; }
+        .article-body mark {
+            background: rgba(255, 215, 0, 0.2);
+            color: var(--accent-highlight);
+            padding: 2px 4px;
+            border-radius: 2px;
+            font-weight: 500;
+        }
+
+        .paywall-cut {
+            margin-top: 20px;
+            padding: 16px;
+            background: rgba(255, 51, 102, 0.1);
+            border: 1px dashed var(--accent-wrong);
+            border-radius: 8px;
+            text-align: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--accent-wrong);
+        }
+
+        /* Quiz Overlay */
+        .quiz-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.92);
+            backdrop-filter: blur(10px);
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 30px;
+            transition: opacity 0.4s ease, visibility 0.4s ease;
+        }
+        .quiz-overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .quiz-header {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            color: var(--accent-correct);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .quiz-header::before {
+            content: '';
+            width: 8px; height: 8px;
+            background: var(--accent-correct);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.4; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.1); }
+            100% { opacity: 0.4; transform: scale(0.8); }
+        }
+
+        .quiz-question {
+            font-size: 20px;
+            font-weight: 600;
+            line-height: 1.4;
+            margin-bottom: 28px;
+        }
+
+        .quiz-options {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .quiz-option {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #fff;
+            padding: 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: 'JetBrains Mono', monospace;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+        }
+        .quiz-option:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); }
+        
+        .opt-letter {
+            font-weight: 700;
+            color: var(--text-secondary);
+            width: 20px;
+        }
+
+        .quiz-option.correct {
+            background: rgba(0, 229, 199, 0.15);
+            border-color: var(--accent-correct);
+            color: var(--accent-correct);
+        }
+        .quiz-option.correct .opt-letter { color: var(--accent-correct); }
+
+        .quiz-option.wrong {
+            background: rgba(255, 51, 102, 0.15);
+            border-color: var(--accent-wrong);
+            color: var(--accent-wrong);
+        }
+        .quiz-option.wrong .opt-letter { color: var(--accent-wrong); }
+
+        .top-nav {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: 60px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 25;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);
+            pointer-events: none;
+        }
+        .nav-title { font-size: 18px; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+    </style>
+</head>
+<body>
+
+    <div class="top-nav">
+        <div class="nav-title">Knowledge Feed</div>
+    </div>
+
+    <div id="feed" class="reels-feed"></div>
+
+    <script>
+        // CURATED DATA ARRAY (No Fake APIs)
+        const REELS_DATA = [
+            {
+                id: 'ai_takeover_2024',
+                bgImage: 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&w=1000&q=80',
+                question: "Based on current scaling laws, how many years will it take for AI models to achieve general human-level reasoning across all domains?",
+                options: [
+                    "Less than 5 years",
+                    "10 to 20 years",
+                    "50+ years",
+                    "Never. AI cannot reason."
+                ],
+                correctIndex: 1,
+                articleTitle: "The Path to AGI: GPT-6 and Beyond",
+                articleBody: `
+                    <p>Current projections from leading AI labs suggest that <mark>Artificial General Intelligence (AGI) could be realized within the next 10 to 20 years</mark>. This timeline is based on the observed exponential growth in compute power and algorithmic efficiency.</p>
+                    <p>The release of models like GPT-4, and the anticipated GPT-6, demonstrate a trajectory where models are no longer just predicting text, but constructing internal world models. <mark>These systems are beginning to exhibit zero-shot reasoning capabilities across modalities</mark>, including vision, audio, and complex logic puzzles.</p>
+                    <p>However, the bottleneck is no longer just data or compute; it is the alignment problem. Ensuring that a superintelligent system acts in accordance with human values is the primary metric gating the "takeover" timeline.</p>
+                `,
+                partialCut: "However, the bottleneck is no longer just data or compute; it is the alignm..."
+            },
+            {
+                id: 'quantum_supremacy_2024',
+                bgImage: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=1000&q=80',
+                question: "What specific cryptographic standard will be broken first when Fault-Tolerant Quantum Computers become commercially viable?",
+                options: [
+                    "AES-256",
+                    "RSA-2048",
+                    "SHA-3",
+                    "None of the above"
+                ],
+                correctIndex: 1,
+                articleTitle: "Quantum Decryption: The Fall of RSA",
+                articleBody: `
+                    <p>The advent of fault-tolerant quantum computing marks the end of classical cryptography as we know it. <mark>RSA-2048, the backbone of modern internet security, will be trivially broken by Shor's Algorithm</mark> once a quantum computer with sufficient logical qubits is deployed.</p>
+                    <p>Unlike symmetric key algorithms like AES-256, which only suffer a quadratic speedup from Grover's Algorithm, RSA relies on the difficulty of integer factorization—a problem quantum computers are inherently designed to solve exponentially faster.</p>
+                    <p>The industry is currently pushing for Post-Quantum Cryptography (PQC) standards, but <mark>the transition phase is estimated to take a minimum of 5 to 10 years</mark> globally.</p>
+                `,
+                partialCut: "The industry is currently pushing for Post-Quantum Cryptography (PQC) standards..."
+            }
+        ];
+
+        // LOCAL STORAGE STATE
+        const STORAGE_KEY = 'knowledge_reels_state';
+        let appState = {
+            viewed: [],
+            saved: []
+        };
+
+        function loadState() {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            if (stored) appState = JSON.parse(stored);
+        }
+
+        function saveState() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+        }
+
+        // RENDER ENGINE
+        function renderFeed() {
+            const feed = document.getElementById('feed');
+            feed.innerHTML = '';
+
+            REELS_DATA.forEach((reel, index) => {
+                const reelEl = document.createElement('section');
+                reelEl.className = 'reel';
+                reelEl.dataset.id = reel.id;
+
+                const isSaved = appState.saved.includes(reel.id);
+                const isViewed = appState.viewed.includes(reel.id);
+
+                reelEl.innerHTML = `
+                    <div class="reel-bg" style="background-image: url('${reel.bgImage}')"></div>
+                    
+                    <div class="action-bar">
+                        <div class="action-item" id="save-btn-${reel.id}">
+                            <svg class="action-icon ${isSaved ? 'active' : ''}" viewBox="0 0 24 24" fill="${isSaved ? 'var(--accent-correct)' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                            </svg>
+                            <span class="action-text">${isSaved ? 'Saved' : 'Save'}</span>
+                        </div>
+                        <div class="action-item" id="read-btn-${reel.id}">
+                            <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                            </svg>
+                            <span class="action-text">Mark Read</span>
+                        </div>
+                        <div class="action-item">
+                            <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                            </svg>
+                            <span class="action-text">Source</span>
+                        </div>
+                    </div>
+
+                    <div class="article-container" id="container-${reel.id}">
+                        <div class="status-badge" id="badge-${reel.id}"></div>
+                        <h1 class="article-title">${reel.articleTitle}</h1>
+                        <div class="article-body" id="body-${reel.id}"></div>
+                    </div>
+
+                    <div class="quiz-overlay ${isViewed ? 'hidden' : ''}" id="quiz-${reel.id}">
+                        <div class="quiz-header">Cognitive Gate</div>
+                        <div class="quiz-question">${reel.question}</div>
+                        <div class="quiz-options">
+                            ${reel.options.map((opt, i) => `
+                                <button class="quiz-option" data-reel-id="${reel.id}" data-index="${i}" data-correct="${i === reel.correctIndex}">
+                                    <span class="opt-letter">${String.fromCharCode(65 + i)}</span>
+                                    <span>${opt}</span>
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+                feed.appendChild(reelEl);
+
+                // If already viewed, render full article immediately
+                if (isViewed) {
+                    renderArticle(reel, true);
+                }
+            });
+
+            attachListeners();
+        }
+
+        function renderArticle(reel, isCorrect) {
+            const container = document.getElementById(`container-${reel.id}`);
+            const badge = document.getElementById(`badge-${reel.id}`);
+            const body = document.getElementById(`body-${reel.id}`);
+
+            if (isCorrect) {
+                badge.className = 'status-badge status-full';
+                badge.innerText = 'FULL KNOWLEDGE UNLOCKED';
+                body.innerHTML = reel.articleBody;
+            } else {
+                badge.className = 'status-badge status-partial';
+                badge.innerText = 'PARTIAL KNOWLEDGE ONLY';
+                // Truncate the article body for wrong answers
+                const partialHTML = reel.articleBody.split('</p>')[0] + '</p>';
+                body.innerHTML = partialHTML + `
+                    <div class="paywall-cut">
+                        PREDICTION FAILED.<br>
+                        Content truncated. Predict accurately next time to unlock full context.
+                    </div>
+                `;
+            }
+
+            container.classList.add('active');
+        }
+
+        // EVENT LISTENERS
+        function attachListeners() {
+            // Quiz Options
+            document.querySelectorAll('.quiz-option').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const reelId = e.currentTarget.dataset.reelId;
+                    const isCorrect = e.currentTarget.dataset.correct === 'true';
+                    const quizEl = document.getElementById(`quiz-${reelId}`);
+                    
+                    // Highlight answers
+                    quizEl.querySelectorAll('.quiz-option').forEach(opt => {
+                        if (opt.dataset.correct === 'true') opt.classList.add('correct');
+                        else if (opt === e.currentTarget) opt.classList.add('wrong');
+                        opt.style.pointerEvents = 'none';
+                    });
+
+                    // Add to viewed in local storage
+                    if (!appState.viewed.includes(reelId)) {
+                        appState.viewed.push(reelId);
+                        saveState();
+                    }
+
+                    // Reveal article with friction delay
+                    const reelData = REELS_DATA.find(r => r.id === reelId);
+                    setTimeout(() => {
+                        renderArticle(reelData, isCorrect);
+                        quizEl.classList.add('hidden');
+                    }, 1000);
+                });
+            });
+
+            // Save Buttons
+            document.querySelectorAll('[id^="save-btn-"]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const reelId = e.currentTarget.id.replace('save-btn-', '');
+                    const svg = e.currentTarget.querySelector('.action-icon');
+                    const text = e.currentTarget.querySelector('.action-text');
+                    
+                    if (appState.saved.includes(reelId)) {
+                        appState.saved = appState.saved.filter(id => id !== reelId);
+                        svg.classList.remove('active');
+                        svg.setAttribute('fill', 'none');
+                        text.innerText = 'Save';
+                    } else {
+                        appState.saved.push(reelId);
+                        svg.classList.add('active');
+                        svg.setAttribute('fill', 'var(--accent-correct)');
+                        text.innerText = 'Saved';
+                    }
+                    saveState();
+                });
+            });
+
+            // Mark Read Buttons
+            document.querySelectorAll('[id^="read-btn-"]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const reelId = e.currentTarget.id.replace('read-btn-', '');
+                    const svg = e.currentTarget.querySelector('.action-icon');
+                    if (!appState.viewed.includes(reelId)) {
+                        appState.viewed.push(reelId);
+                        saveState();
+                        svg.classList.add('active');
+                        // Auto-reveal article as "read"
+                        const reelData = REELS_DATA.find(r => r.id === reelId);
+                        const quizEl = document.getElementById(`quiz-${reelId}`);
+                        quizEl.classList.add('hidden');
+                        renderArticle(reelData, true); // Grant full knowledge for honesty
+                    }
+                });
+            });
+        }
+
+        // INIT
+        loadState();
+        renderFeed();
+    </script>
+</body>
+</html>
